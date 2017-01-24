@@ -1,4 +1,4 @@
-# nuklear-backend-gfx
+# nuklear-backend-glium
 
 [![Latest Version](https://img.shields.io/crates/v/nuklear-backend-glium.svg)](https://crates.io/crates/nuklear-backend-glium)
 

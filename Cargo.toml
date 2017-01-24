@@ -15,6 +15,6 @@ path = "src/lib.rs"
 
 [dependencies]
 log = "~0.3"
-glium = "*"
+glium = "~0.16"
 nuklear-rust = "~0.1"
 
