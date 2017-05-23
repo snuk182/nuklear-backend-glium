@@ -1,6 +1,6 @@
 [package]
 name = "nuklear-backend-glium"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Serhii Plyhun <snuk188@gmail.com>"]
 keywords = ["widgets", "gui", "interface", "graphics", "glium"]
 description = "A glium drawing backend for Rust wrapper for Nuklear 2D GUI library"
@@ -16,5 +16,5 @@ path = "src/lib.rs"
 [dependencies]
 log = "~0.3"
 glium = "~0.16"
-nuklear-rust = "~0.1"
+nuklear-rust = "~0.2"
 
