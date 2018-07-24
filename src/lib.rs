@@ -1,14 +1,16 @@
-extern crate nuklear_rust;
+#![cfg_attr(feature = "cargo-clippy", allow(redundant_field_names))] // for clarity
+
+extern crate nuklear;
 
 #[macro_use]
 extern crate glium;
 
-use nuklear_rust::{NkHandle, NkContext, NkConvertConfig, NkVec2, NkBuffer, NkDrawVertexLayoutElements, NkDrawVertexLayoutAttribute, NkDrawVertexLayoutFormat};
+use nuklear::{Buffer, Context, ConvertConfig, DrawVertexLayoutAttribute, DrawVertexLayoutElements, DrawVertexLayoutFormat, Handle, Vec2};
 
 #[derive(Debug, Copy, Clone)]
 struct Vertex {
-    pos: NkVec2,
-    tex: NkVec2,
+    pos: Vec2,
+    tex: Vec2,
     col: [u8; 4],
 }
 
@@ -18,9 +20,11 @@ impl glium::vertex::Vertex for Vertex {
 
         unsafe {
             let dummy: &Vertex = ::std::mem::transmute(0usize);
-            ::std::borrow::Cow::Owned(vec![("Position".into(), transmute(&dummy.pos), <(f32, f32) as glium::vertex::Attribute>::get_type()),
-                                           ("TexCoord".into(), transmute(&dummy.tex), <(f32, f32) as glium::vertex::Attribute>::get_type()),
-                                           ("Color".into(), transmute(&dummy.col), glium::vertex::AttributeType::U8U8U8U8)])
+            ::std::borrow::Cow::Owned(vec![
+                ("Position".into(), transmute(&dummy.pos), <(f32, f32) as glium::vertex::Attribute>::get_type(), false),
+                ("TexCoord".into(), transmute(&dummy.tex), <(f32, f32) as glium::vertex::Attribute>::get_type(), false),
+                ("Color".into(), transmute(&dummy.col), glium::vertex::AttributeType::U8U8U8U8, false),
+            ])
         }
     }
 }
@@ -31,7 +35,7 @@ impl Default for Vertex {
     }
 }
 
-const VS: &'static str = "#version 150
+const VS: &str = "#version 150
         uniform mat4 ProjMtx;
         in vec2 Position;
         in vec2 TexCoord;
@@ -44,7 +48,7 @@ const VS: &'static str = "#version 150
            Frag_Color = Color / 255.0;
            gl_Position = ProjMtx * vec4(Position.xy, 0, 1);
         }";
-const FS: &'static str = "#version 150
+const FS: &str = "#version 150
         precision mediump float;
 	    uniform sampler2D Texture;
         in vec2 Frag_UV;
@@ -56,18 +60,18 @@ const FS: &'static str = "#version 150
 		}";
 
 pub struct Drawer {
-    cmd: NkBuffer,
+    cmd: Buffer,
     prg: glium::Program,
     tex: Vec<glium::Texture2d>,
     vbf: Vec<Vertex>,
     ebf: Vec<u16>,
     vbo: glium::VertexBuffer<Vertex>,
     ebo: glium::IndexBuffer<u16>,
-    vle: NkDrawVertexLayoutElements,
+    vle: DrawVertexLayoutElements,
 }
 
 impl Drawer {
-    pub fn new(display: &mut glium::Display, texture_count: usize, vbo_size: usize, ebo_size: usize, command_buffer: NkBuffer) -> Drawer {
+    pub fn new(display: &mut glium::Display, texture_count: usize, vbo_size: usize, ebo_size: usize, command_buffer: Buffer) -> Drawer {
         Drawer {
             cmd: command_buffer,
             prg: glium::Program::from_source(display, VS, FS, None).unwrap(),
@@ -75,18 +79,17 @@ impl Drawer {
             vbf: vec![Vertex::default(); vbo_size * ::std::mem::size_of::<Vertex>()],
             ebf: vec![0u16; ebo_size * ::std::mem::size_of::<u16>()],
             vbo: glium::VertexBuffer::empty_dynamic(display, vbo_size * ::std::mem::size_of::<Vertex>()).unwrap(),
-            ebo: glium::IndexBuffer::empty_dynamic(display,
-                                                   glium::index::PrimitiveType::TrianglesList,
-                                                   ebo_size * ::std::mem::size_of::<u16>())
-                .unwrap(),
-            vle: NkDrawVertexLayoutElements::new(&[(NkDrawVertexLayoutAttribute::NK_VERTEX_POSITION, NkDrawVertexLayoutFormat::NK_FORMAT_FLOAT, 0),
-                                                   (NkDrawVertexLayoutAttribute::NK_VERTEX_TEXCOORD, NkDrawVertexLayoutFormat::NK_FORMAT_FLOAT, 8),
-                                                   (NkDrawVertexLayoutAttribute::NK_VERTEX_COLOR, NkDrawVertexLayoutFormat::NK_FORMAT_R8G8B8A8, 16),
-                                                   (NkDrawVertexLayoutAttribute::NK_VERTEX_ATTRIBUTE_COUNT, NkDrawVertexLayoutFormat::NK_FORMAT_COUNT, 32)]),
+            ebo: glium::IndexBuffer::empty_dynamic(display, glium::index::PrimitiveType::TrianglesList, ebo_size * ::std::mem::size_of::<u16>()).unwrap(),
+            vle: DrawVertexLayoutElements::new(&[
+                (DrawVertexLayoutAttribute::NK_VERTEX_POSITION, DrawVertexLayoutFormat::NK_FORMAT_FLOAT, 0),
+                (DrawVertexLayoutAttribute::NK_VERTEX_TEXCOORD, DrawVertexLayoutFormat::NK_FORMAT_FLOAT, 8),
+                (DrawVertexLayoutAttribute::NK_VERTEX_COLOR, DrawVertexLayoutFormat::NK_FORMAT_R8G8B8A8, 16),
+                (DrawVertexLayoutAttribute::NK_VERTEX_ATTRIBUTE_COUNT, DrawVertexLayoutFormat::NK_FORMAT_COUNT, 32),
+            ]),
         }
     }
 
-    pub fn add_texture(&mut self, display: &mut glium::Display, image: &[u8], width: u32, height: u32) -> NkHandle {
+    pub fn add_texture(&mut self, display: &mut glium::Display, image: &[u8], width: u32, height: u32) -> Handle {
         let image = glium::texture::RawImage2d {
             data: std::borrow::Cow::Borrowed(image),
             width: width,
@@ -94,19 +97,24 @@ impl Drawer {
             format: glium::texture::ClientFormat::U8U8U8U8,
         };
         let tex = glium::Texture2d::new(display, image).unwrap();
-        let hnd = NkHandle::from_id(self.tex.len() as i32 + 1);
+        let hnd = Handle::from_id(self.tex.len() as i32 + 1);
         self.tex.push(tex);
         hnd
     }
 
-    pub fn draw(&mut self, ctx: &mut NkContext, cfg: &mut NkConvertConfig, frame: &mut glium::Frame, scale: NkVec2) {
-        use glium::{Blend, DrawParameters, Rect};
+    pub fn draw(&mut self, ctx: &mut Context, cfg: &mut ConvertConfig, frame: &mut glium::Frame, scale: Vec2) {
         use glium::uniforms::MagnifySamplerFilter;
         use glium::Surface;
+        use glium::{Blend, DrawParameters, Rect};
 
         let (ww, hh) = frame.get_dimensions();
 
-        let ortho = [[2.0f32 / ww as f32, 0.0f32, 0.0f32, 0.0f32], [0.0f32, -2.0f32 / hh as f32, 0.0f32, 0.0f32], [0.0f32, 0.0f32, -1.0f32, 0.0f32], [-1.0f32, 1.0f32, 0.0f32, 1.0f32]];
+        let ortho = [
+            [2.0f32 / ww as f32, 0.0f32, 0.0f32, 0.0f32],
+            [0.0f32, -2.0f32 / hh as f32, 0.0f32, 0.0f32],
+            [0.0f32, 0.0f32, -1.0f32, 0.0f32],
+            [-1.0f32, 1.0f32, 0.0f32, 1.0f32],
+        ];
 
         cfg.set_vertex_layout(&self.vle);
         cfg.set_vertex_size(::std::mem::size_of::<Vertex>());
@@ -115,16 +123,10 @@ impl Drawer {
             self.vbo.invalidate();
             self.ebo.invalidate();
 
-            let mut rvbuf = unsafe {
-                ::std::slice::from_raw_parts_mut(self.vbf.as_mut() as *mut [Vertex] as *mut u8,
-                                                 self.vbf.capacity())
-            };
-            let mut rebuf = unsafe {
-                ::std::slice::from_raw_parts_mut(self.ebf.as_mut() as *mut [u16] as *mut u8,
-                                                 self.ebf.capacity())
-            };
-            let mut vbuf = NkBuffer::with_fixed(&mut rvbuf);
-            let mut ebuf = NkBuffer::with_fixed(&mut rebuf);
+            let mut rvbuf = unsafe { ::std::slice::from_raw_parts_mut(self.vbf.as_mut() as *mut [Vertex] as *mut u8, self.vbf.capacity()) };
+            let mut rebuf = unsafe { ::std::slice::from_raw_parts_mut(self.ebf.as_mut() as *mut [u16] as *mut u8, self.ebf.capacity()) };
+            let mut vbuf = Buffer::with_fixed(&mut rvbuf);
+            let mut ebuf = Buffer::with_fixed(&mut rebuf);
 
             ctx.convert(&mut self.cmd, &mut vbuf, &mut ebuf, &cfg);
 
@@ -136,7 +138,6 @@ impl Drawer {
         let mut idx_end;
 
         for cmd in ctx.draw_command_iterator(&self.cmd) {
-
             if cmd.elem_count() < 1 {
                 continue;
             }
@@ -151,37 +152,38 @@ impl Drawer {
             let w = cmd.clip_rect().w * scale.x;
             let h = cmd.clip_rect().h * scale.y;
 
-            frame.draw(&self.vbo,
-                      &self.ebo.slice(idx_start..idx_end).unwrap(),
-                      &self.prg,
-                      &uniform! {
-			              ProjMtx: ortho,
-			              Texture: ptr.sampled().magnify_filter(MagnifySamplerFilter::Linear),
-			          },
-                      &DrawParameters {
-                          blend: Blend::alpha_blending(),
-                          scissor: Some(Rect {
-                              left: (if x < 0f32 { 0f32 } else { x }) as u32,
-                              bottom: (if y < 0f32 { 0f32 } else { hh as f32 - y - h }) as u32,
-                              width: (if x < 0f32 { w + x } else { w }) as u32,
-                              height: (if y < 0f32 { h + y } else { h }) as u32,
-                          }),
-                          backface_culling: glium::draw_parameters::BackfaceCullingMode::CullingDisabled,
+            frame
+                .draw(
+                    &self.vbo,
+                    &self.ebo.slice(idx_start..idx_end).unwrap(),
+                    &self.prg,
+                    &uniform! {
+                        ProjMtx: ortho,
+                        Texture: ptr.sampled().magnify_filter(MagnifySamplerFilter::Linear),
+                    },
+                    &DrawParameters {
+                        blend: Blend::alpha_blending(),
+                        scissor: Some(Rect {
+                            left: (if x < 0f32 { 0f32 } else { x }) as u32,
+                            bottom: (if y < 0f32 { 0f32 } else { hh as f32 - y - h }) as u32,
+                            width: (if x < 0f32 { w + x } else { w }) as u32,
+                            height: (if y < 0f32 { h + y } else { h }) as u32,
+                        }),
+                        backface_culling: glium::draw_parameters::BackfaceCullingMode::CullingDisabled,
 
-                          ..DrawParameters::default()
-                      })
+                        ..DrawParameters::default()
+                    },
+                )
                 .unwrap();
             idx_start = idx_end;
         }
     }
 
     fn find_res(&self, id: i32) -> Option<&glium::Texture2d> {
-        let mut ret = None;
-
         if id > 0 && id as usize <= self.tex.len() {
-            ret = Some(&self.tex[(id - 1) as usize]);
+            Some(&self.tex[(id - 1) as usize])
+        } else {
+            None
         }
-
-        ret
     }
 }
