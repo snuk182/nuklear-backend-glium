@@ -1,9 +1,7 @@
 #![cfg_attr(feature = "cargo-clippy", allow(redundant_field_names))] // for clarity
 
-extern crate nuklear;
-
 #[macro_use]
-extern crate glium;
+pub extern crate glium;
 
 use nuklear::{Buffer, Context, ConvertConfig, DrawVertexLayoutAttribute, DrawVertexLayoutElements, DrawVertexLayoutFormat, Handle, Vec2};
 
@@ -81,10 +79,10 @@ impl Drawer {
             vbo: glium::VertexBuffer::empty_dynamic(display, vbo_size * ::std::mem::size_of::<Vertex>()).unwrap(),
             ebo: glium::IndexBuffer::empty_dynamic(display, glium::index::PrimitiveType::TrianglesList, ebo_size * ::std::mem::size_of::<u16>()).unwrap(),
             vle: DrawVertexLayoutElements::new(&[
-                (DrawVertexLayoutAttribute::NK_VERTEX_POSITION, DrawVertexLayoutFormat::NK_FORMAT_FLOAT, 0),
-                (DrawVertexLayoutAttribute::NK_VERTEX_TEXCOORD, DrawVertexLayoutFormat::NK_FORMAT_FLOAT, 8),
-                (DrawVertexLayoutAttribute::NK_VERTEX_COLOR, DrawVertexLayoutFormat::NK_FORMAT_R8G8B8A8, 16),
-                (DrawVertexLayoutAttribute::NK_VERTEX_ATTRIBUTE_COUNT, DrawVertexLayoutFormat::NK_FORMAT_COUNT, 32),
+                (DrawVertexLayoutAttribute::Position, DrawVertexLayoutFormat::Float, 0),
+                (DrawVertexLayoutAttribute::TexCoord, DrawVertexLayoutFormat::Float, 8),
+                (DrawVertexLayoutAttribute::Color, DrawVertexLayoutFormat::R8G8B8A8, 16),
+                (DrawVertexLayoutAttribute::AttributeCount, DrawVertexLayoutFormat::Count, 32),
             ]),
         }
     }
