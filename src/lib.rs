@@ -16,6 +16,7 @@ impl glium::vertex::Vertex for Vertex {
     fn build_bindings() -> glium::vertex::VertexFormat {
         use std::mem::transmute;
 
+        #[allow(invalid_value)]
         unsafe {
             let dummy: &Vertex = ::std::mem::transmute(0usize);
             ::std::borrow::Cow::Owned(vec![
@@ -100,7 +101,7 @@ impl Drawer {
         hnd
     }
 
-    pub fn draw(&mut self, ctx: &mut Context, cfg: &mut ConvertConfig, frame: &mut glium::Frame, scale: Vec2) {
+    pub fn draw(&mut self, ctx: &mut Context, cfg: &mut ConvertConfig, frame: &mut glium::Frame, _scale: Vec2) {
         use glium::uniforms::MagnifySamplerFilter;
         use glium::Surface;
         use glium::{Blend, DrawParameters, Rect};
