@@ -145,10 +145,10 @@ impl Drawer {
 
             idx_end = idx_start + cmd.elem_count() as usize;
 
-            let x = cmd.clip_rect().x * scale.x;
-            let y = cmd.clip_rect().y * scale.y;
-            let w = cmd.clip_rect().w * scale.x;
-            let h = cmd.clip_rect().h * scale.y;
+            let x = cmd.clip_rect().x;
+            let y = cmd.clip_rect().y;
+            let w = cmd.clip_rect().w;
+            let h = cmd.clip_rect().h;
 
             frame
                 .draw(
